@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <!-- Required meta tags -->
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!-- Bootstrap CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.1/dist/css/bootstrap.min.css" rel="stylesheet"
+    integrity="sha384-+0n0xVW2eSR5OomGNYDnhzAbDsOXxcvSN1TPprVMTNDbiYZCxYbOOl7+AMvyTG2x" crossorigin="anonymous">
+
+  <title>Iden3 Wallet</title>
+  <link href="../css/style.css" rel="stylesheet">
+</head>
+
+<body>
+  <main class="form-signin">
+    <div class="text-center">
+      <img class="mb-4" src="../../assets/images/logo.png" alt="" width="72" height="57">
+    </div>
+    <h1 class="h3 mb-1 fw-normal">Total Balance</h1>
+    <h3 class="h5 mb-3 fw-normal">365.25 ETH</h3>
+
+    <div class="form-floating mb-3">
+      <input type="text" sg-model="recipient" class="form-control" id="recipientInput"
+        placeholder="Enter Recipient Address">
+      <label for="recipientInput">Recipient</label>
+    </div>
+    <div class="form-floating mb-1">
+      <input type="number" sg-model="amount" class="form-control" id="amountInput" placeholder="0" disabled>
+      <label for="valueInEth">Amount (eth)</label>
+    </div>
+
+    <div class="mb-3 badge bg-primary">
+      <label id="amountUsdLabel">
+        $ 0.00 USD
+      </label>
+    </div>
+
+    <div>
+      <label id="feesLabel">
+        Fees: $ 0.00 USD
+      </label>
+    </div>
+    <div class="badge bg-primary mb-3">
+      <label id="feesUsdLabel">
+        $ 0.00 USD
+
+      </label>
+    </div>
+    <button class="w-100 btn btn-lg btn-primary" id="submitTransaction" disabled>Send</button>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.1/dist/js/bootstrap.bundle.min.js"
+    integrity="sha384-gtEjrD/SeCtmISkJkNUaaKMoLD0//ElJ19smozuHV6z3Iehds+3Ulb9Bn9Plx0x4"
+    crossorigin="anonymous"></script>
+
+  <script type="module">
+    import EthController from '../../controller/ethController.js';
+    import WalletController from '../../controller/walletController.js';
+
+    const ethController = await new EthController();
+    const walletController = await new WalletController();
+
+    const inputElements = document.querySelectorAll('[sg-model]');
+    const inputBinds = document.querySelectorAll('[sg-bind]');
+
+    const recipientInput = document.getElementById("recipientInput");
+    const amountInput = document.getElementById("amountInput");
+    const submitButton = document.getElementById("submitTransaction");
+    const feesLabel = document.getElementById("feesLabel");
+    const amountUsdLabel = document.getElementById("amountUsdLabel");
+
+    const totalBalance = 365.25;
+
+    let state = {};
+    function dataBinding() {
+      for (let elem of inputElements) {
+        if (elem.type === 'text' || elem.type === 'number') {
+          let propName = elem.getAttribute('sg-model');
+          elem.addEventListener('keyup', e => {
+            state[propName] = elem.value;
+            dispatchFunctions(propName, elem.value);
+          })
+        }
+      }
+    }
+
+    async function sendEth() {
+      await ethController.sendEth(state.recipient, state.amount);
+    }
+
+    function validateRecipient() {
+      if (ethController.validateEthAddress(state.recipient)) {
+        amountInput.disabled = false;
+        submitButton.disabled = false;
+        amountInput.focus();
+        recipientInput.classList.add("is-valid")
+      } else {
+        amountInput.disabled = true;
+        amountInput.value = "";
+        submitButton.disabled = true;
+        recipientInput.classList.remove("is-valid")
+
+      }
+    }
+
+    async function handleAmount() {
+      if (state.amount) {
+        const fees = await walletController.calculateFee(state.amount);
+        feesLabel.innerHTML = `Fees: ${fees.ether}`;
+        const ethUsdPrice = await walletController.getEthUsdPrice();
+        const usdAmount = ethUsdPrice * parseFloat(state.amount);
+        amountUsdLabel.innerHTML = `$${usdAmount.toFixed(2)} USD`
+        const feesUsd = ethUsdPrice * parseFloat(fees.ether);
+        feesUsdLabel.innerHTML = `$${feesUsd.toFixed(2)} USD`
+
+        if (walletController.validateAmount(state.amount, fees.wei, totalBalance.toString())) {
+          submitButton.disabled = false;
+        }
+        else {
+          submitButton.disabled = true;
+        }
+      }
+      else {
+        feesLabel.innerHTML = ""
+        submitButton.disabled = true;
+      }
+    }
+
+    async function dispatchFunctions(propName, propValue) {
+      switch (propName) {
+        case "recipient":
+          validateRecipient();
+        case "amount":
+          await handleAmount();
+      }
+    }
+
+    submitButton.addEventListener("click", sendEth);
+    recipientInput.focus();
+    dataBinding();
+
+
+  </script>
+</body>
+
+</html>
